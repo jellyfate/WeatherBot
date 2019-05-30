@@ -15,6 +15,8 @@ bot.
 
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import logging
+import json
+import urllib.request
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -37,7 +39,13 @@ def help(bot, update):
 
 def echo(bot, update):
     """Echo the user message."""
-    update.message.reply_text(update.message.text)
+    # update.message.reply_text(update.message.text)
+    with urllib.request.urlopen(
+        "https://api.darksky.net/forecast/cfc279055ab44b7e0c7084262d668ca4/51.470473,31.375846"
+        ) as url:
+        data = json.loads(url.read().decode())
+    update.message.reply_text(data)
+
 
 
 def error(bot, update, error):
