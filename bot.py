@@ -44,7 +44,7 @@ def echo(bot, update):
         ) as url:
         data = json.loads(url.read().decode())
     update.message.reply_text(data["currently"])
-# 
+
 def error(bot, update, error):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, error)
