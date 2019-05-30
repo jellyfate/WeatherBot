@@ -44,7 +44,7 @@ def echo(bot, update):
         "https://api.darksky.net/forecast/cfc279055ab44b7e0c7084262d668ca4/51.470473,31.375846"
         ) as url:
         data = json.loads(url.read().decode())
-    update.message.reply_text(data)
+    update.message.reply_text(data["currently"])
 
 
 
