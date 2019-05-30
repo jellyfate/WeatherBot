@@ -39,7 +39,7 @@ def help(bot, update):
 
 def echo(bot, update):
     """Echo the user message."""
-    # update.message.reply_text(update.message.text)fgfg
+    # update.message.reply_text(update.message.text)fgfgdsgdfsg
     with urllib.request.urlopen(
         "https://api.darksky.net/forecast/cfc279055ab44b7e0c7084262d668ca4/51.470473,31.375846"
         ) as url:
