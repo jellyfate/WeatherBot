@@ -47,7 +47,7 @@ def echo(bot, update):
         "https://api.darksky.net/forecast/cfc279055ab44b7e0c7084262d668ca4/51.470473,31.375846"
         ) as url:
         data = json.loads(url.read().decode())
-        chatId = update.message.chat.id;
+        chatId = update.message.chat.id
 
         def farenhToCelc(farenhT):
             return round((farenhT - 32) * (5/9), 1)        
@@ -62,7 +62,7 @@ def echo(bot, update):
         current['windSpeed'] = str(current['windSpeed']) + ' m/s'
         current['pressure'] = str(current['pressure']) + ' hps'
 
-        reply = '';
+        reply = ''
 
         for key,val in current.items():
             reply += f"<code>{key}</code> :  {val}\n"
