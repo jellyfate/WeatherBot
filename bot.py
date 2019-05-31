@@ -17,6 +17,10 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import logging
 import json
 import urllib.request
+import datetime
+import time
+import telegram
+from collections import namedtuple
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -43,7 +47,28 @@ def echo(bot, update):
         "https://api.darksky.net/forecast/cfc279055ab44b7e0c7084262d668ca4/51.470473,31.375846"
         ) as url:
         data = json.loads(url.read().decode())
-    update.message.reply_text(data["currently"])
+        chatId = update.message.chat.id
+
+        def farenhToCelc(farenhT):
+            return round((farenhT - 32) * (5/9), 1)        
+
+        current = data['currently']
+
+        #Formatting some fields
+        current['time'] = datetime.datetime.fromtimestamp(current['time'])
+        current['temperature'] = str(farenhToCelc(current['temperature'])) + ' C'
+        current['apparentTemperature'] = str(farenhToCelc(current['apparentTemperature'])) + ' C'
+        current['dewPoint'] = str(farenhToCelc(current['dewPoint'])) + ' C'
+        current['humidity'] = str(current['humidity'] * 100) + ' %'
+        current['windSpeed'] = str(current['windSpeed']) + ' m/s'
+        current['pressure'] = str(current['pressure']) + ' hps'
+
+        reply = ''
+
+        for key,val in current.items():
+            reply += f"<code>{key}</code> :  {val}\n"
+
+        bot.send_message(chatId, text = reply, parse_mode=telegram.ParseMode.HTML)
 
 def error(bot, update, error):
     """Log Errors caused by Updates."""
