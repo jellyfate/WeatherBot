@@ -47,34 +47,33 @@ def json_to_dict(link):
      with urllib.request.urlopen( link ) as url:
         return json.loads(url.read().decode())
 
-
 def farenhToCelc(farenhT):
         return round((farenhT - 32) * (5/9), 1) 
+
+def unknown_location_check(location, update):
+    if location not in locations.keys():
+        update.message.reply_text("Не найдено! Доступные локации: " 
+        + ", ".join(list(locations.keys())) + " (чувствительно к регистру!)")
+        return True 
 
 
 def start(bot, update): 
     update.message.reply_text('Hi!')
-
 
 def help(bot, update):
     update.message.reply_text('Help!')
 
 
 def echo(bot, update, args):
-    # chech if location is in the location dict
-    if args[0] not in locations.keys():
-        update.message.reply_text("Не найдено! Доступные локации: " 
-        + ", ".join(list(locations.keys())) + " (чувствительно к регистру!)")
-        return
-    # takes location name from the dict and capitalize it
+    if unknown_location_check(args[0], update): return 
     reply = "Местоположение: " + args[0].title() + "\n"
+               
+    data = json_to_dict(forecast["DarkSky.net"].format(locations[args[0]][0], locations[args[0]][1]))
+    current = data['currently']
     # data = {}    
     # for key, value in current_weather.items():
     #     # take api links, insert into the coordinates taken from location list by key
     #     data[key] = json_to_dict(value.format(locations[args[0]][0], locations[args[0]][1]))
-           
-    data = json_to_dict(forecast["DarkSky.net"].format(locations[args[0]][0], locations[args[0]][1]))
-    current = data['currently']
 
     current['time'] = datetime.datetime.fromtimestamp(current['time'])
     current['temperature'] = str(farenhToCelc(current['temperature'])) + ' C'
@@ -92,12 +91,7 @@ def echo(bot, update, args):
 
 
 def rain_now(bot, update, args):
-    # chech if location is in the location dict
-    if args[0] not in locations.keys():
-        update.message.reply_text("Не найдено! Доступные локации: " 
-        + ", ".join(list(locations.keys())) + " (чувствительно к регистру!)")
-        return
-    # takes location name from the dict and capitalize it
+    if unknown_location_check(args[0], update): return 
     message = "Местоположение: " + args[0].title() + "\n"
 
     data = {}    
