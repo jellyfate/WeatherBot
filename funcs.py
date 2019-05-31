@@ -2,7 +2,6 @@ import urllib, json
 
 from data import *
 
-
 def json_to_dict(link):
      with urllib.request.urlopen( link ) as url:
         return json.loads(url.read().decode())

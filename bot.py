@@ -1,50 +1,28 @@
  #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""Simple Bot to reply to Telegram messages.
-This program is dedicated to the public domain under the CC0 license.
-This Bot uses the Updater class to handle the bot.
-First, a few handler functions are defined. Then, those functions are passed to
-the Dispatcher and registered at their respective places.
+"""The Bot is created for checking weather in custom location.
+It colects rain data every day and store it, so user can access rain history.
+Also this Bot can remind, if at your locations were no rain last few days.
 Then, the bot is started and runs until we press Ctrl-C on the command line.
 """
 
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-import logging, telegram, datetime, sched, time
-from threading import Thread
+from telegram.ext import Updater, CommandHandler #, MessageHandler, Filters
+import logging, telegram, datetime
 import sqlite3 as sql
+from apscheduler.schedulers.background import BackgroundScheduler
 from funcs import *
-
-# Enable logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # db connection
 try:
-    connection = sql.connect('log.db')
-    cursor = connection.cursor()
+    connection = sql.connect('log.db')    
 except sql.Error as e:
-    print("Error {}:".format(e.args[0]))
-# finally:
-#     if connection:
-#         connection.close()
+    print("Error {}:".format(e.args[0]))   
 
-# hourly saving rain data
-def daily_log(sc): 
-    for location in locations.keys():
-        owm, darksky, apixu = rain(location)
-        # print('INSERT INTO {} VALUES("{}",{},{},{});'.format(
-        #     today_db[location], datetime.date.today(), owm, darksky, apixu))
-        print(datetime.datetime.now())
-        cursor.execute('INSERT INTO {} VALUES("{}",{},{},{});'.format(
-            today_db[location], datetime.datetime.now(), owm, darksky, apixu))
-        connection.commit()
-    scheduler.enter(3600, 1, daily_log, (sc,))
-
-# sheduler to hourly launch daily_log function
-scheduler = sched.scheduler(time.time, time.sleep)
-scheduler.enter(3600, 1, daily_log, (scheduler,))
+# enable logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def start(bot, update): 
@@ -92,34 +70,82 @@ def rain_now(bot, update, args):
     update.message.reply_text(reply)
 
 
+# send rain history for 5 days
+def history(bot, update, args):
+    if unknown_location_check(args[0], update): return 
+    connection = sql.connect('log.db') 
+    cursor = connection.cursor()
+    cursor.execute("select * from {};".format(places[args[0]]["history_db"]))
+    rows = cursor.fetchall()[-5:]
+    
+    template = "{0:20} {1:^15} {2:^15} {3:15} \n"
+    reply = "Местоположение: " + args[0].title() + "\n"
+    reply += template.format("День", "OWM", "DarkSky", "   APIXU")
+    for row in rows:
+        reply += template.format(row[0], row[1], row[2], row[3])
+    update.message.reply_text(reply)
+
+
+# hourly saving rain data
+def hourly_log(): 
+    cursor = connection.cursor()
+    for location in locations.keys():
+        owm, darksky, apixu = rain(location)
+        # print('INSERT INTO {} VALUES("{}",{},{},{});'.format(
+        #     today_db[location], datetime.date.today(), owm, darksky, apixu))
+        print(datetime.datetime.now())        
+        cursor.execute('INSERT INTO {} VALUES("{}",{},{},{});'.format(
+            today_db[location], datetime.datetime.now(), owm, darksky, apixu))
+        connection.commit()
+
+# daily saving rain data
+def daily_log():
+    cursor = connection.cursor()
+    for location in locations.keys():
+
+        cursor.execute("select * from {};".format(places[location]["today_db"]))
+        rows = cursor.fetchall()        
+        rows = [item for t in rows for item in t]  
+        # cursor.execute("delete from {};".format(places[location]["today_db"]))
+
+        cursor.execute('INSERT INTO {} VALUES("{}",{},{},{});'.format(
+            places[location]["history_db"], datetime.date.today(), 
+            max(rows[1::4]), max(rows[2::4]), max(rows[3::4])))
+        connection.commit()
+
+
 def main():
     # Create the EventHandler and pass it your bot's token.
     updater = Updater("765960442:AAFyVQMSztNU4uBwRqBLyOuyMir8W5h3NW4")
-
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
-
     # on different commands - answer in Telegram
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
     dp.add_handler(CommandHandler("погода", echo, pass_args=True))
     dp.add_handler(CommandHandler("дождь", rain_now, pass_args=True))
-
-    # on noncommand i.e message - echo the message on Telegram
-    dp.add_handler(MessageHandler(Filters.text, rain_now))
-
+    dp.add_handler(CommandHandler("история", history, pass_args=True))
     # log all errors
     dp.add_error_handler(error)
 
-    # Start the Bot
-    updater.start_polling()
+    # executing hourly and daily schedules in background
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(hourly_log, 'interval', hours=1)
+    scheduler.add_job(daily_log, 'interval', hours=24, start_date='2019-06-01 23:59:00')
+    # scheduler.add_job(reminder, 'interval', hours=24, start_date='2019-06-01 00:12:00')
+    scheduler.start()
 
-    scheduler.run()
-    
-    # Run the bot until you press Ctrl-C or the process receives SIGINT,
-    # SIGTERM or SIGABRT. This should be used most of the time, since
-    # start_polling() is non-blocking and will stop the bot gracefully.
-    updater.idle()
+    try:
+        # Start the Bot
+        updater.start_polling()   
+        # Run the bot until you press Ctrl-C or the process receives SIGINT,
+        # SIGTERM or SIGABRT. This should be used most of the time, since
+        # start_polling() is non-blocking and will stop the bot gracefully.
+        updater.idle()
+    except (KeyboardInterrupt, SystemExit):
+        # Not strictly necessary if daemonic mode is enabled but should be done if possible
+        scheduler.shutdown()
+        connection.close()
 
 if __name__ == '__main__':
     main()
