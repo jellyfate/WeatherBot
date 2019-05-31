@@ -53,8 +53,9 @@ def echo(bot, update):
             return round((farenhT - 32) * (5/9), 1)        
 
         current = data['currently']
+
+        #Formatting some fields
         current['time'] = datetime.datetime.fromtimestamp(current['time'])
-       
         current['temperature'] = str(farenhToCelc(current['temperature'])) + ' C'
         current['apparentTemperature'] = str(farenhToCelc(current['apparentTemperature'])) + ' C'
         current['dewPoint'] = str(farenhToCelc(current['dewPoint'])) + ' C'
