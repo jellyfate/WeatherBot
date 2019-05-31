@@ -44,7 +44,7 @@ def help(bot, update):
 def echo(bot, update):
     """Echo the user message."""
     with urllib.request.urlopen(
-        "https://api.darksky.net/forecast/cfc279055ab44b7e0c7084262d668ca4/51.470473,31.375846"
+        "https://api.darksky.net/forecast/cfc279055ab44b7e0c7084262d668ca4/51,31"
         ) as url:
         data = json.loads(url.read().decode())
         chatId = update.message.chat.id
@@ -78,7 +78,7 @@ def error(bot, update, error):
 def main():
     """Start the bot."""
     # Create the EventHandler and pass it your bot's token.
-    updater = Updater("812215138:AAENIsKiCloqVsdZlrEvCcPuEUT3OgMSBf8")
+    updater = Updater("")
 
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
