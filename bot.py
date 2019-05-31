@@ -17,33 +17,106 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import logging
 import json
 import urllib.request
+import datetime
+import telegram
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
-
 logger = logging.getLogger(__name__)
 
+locations = {   
+    'еньков': [51.470473, 31.375846], 
+    'кск':    [51.463262, 31.269598],
+}
 
-# Define a few command handlers. These usually take the two arguments bot and
-# update. Error handlers also receive the raised TelegramError object in error.
-def start(bot, update):
-    """Send a message when the command /start is issued."""
+current_weather = {   
+    'OpenWeatherMap.org': "https://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&appid=b7f629081f4f576144361ffc63ee8fad", 
+    'DarkSky.net':  "https://api.darksky.net/forecast/cfc279055ab44b7e0c7084262d668ca4/{},{}",
+    'APIXU.com': "http://api.apixu.com/v1/current.json?key=3cc653a5a4474dcd828182331193005&q={},{}",
+}
+
+forecast = {   
+    'OpenWeatherMap.org': "https://api.openweathermap.org/data/2.5/forecast?lat={}&lon={}&appid=b7f629081f4f576144361ffc63ee8fad", 
+    'DarkSky.net':  "https://api.darksky.net/forecast/cfc279055ab44b7e0c7084262d668ca4/{},{}",
+    'APIXU.com': "http://api.apixu.com/v1/forecast.json?key=3cc653a5a4474dcd828182331193005&q={},{}",
+}
+
+
+def json_to_dict(link):
+     with urllib.request.urlopen( link ) as url:
+        return json.loads(url.read().decode())
+
+
+def farenhToCelc(farenhT):
+        return round((farenhT - 32) * (5/9), 1) 
+
+
+def start(bot, update): 
     update.message.reply_text('Hi!')
 
 
 def help(bot, update):
-    """Send a message when the command /help is issued."""
     update.message.reply_text('Help!')
 
 
-def echo(bot, update):
-    """Echo the user message."""
-    with urllib.request.urlopen(
-        "https://api.darksky.net/forecast/cfc279055ab44b7e0c7084262d668ca4/51.470473,31.375846"
-        ) as url:
-        data = json.loads(url.read().decode())
-    update.message.reply_text(data["currently"])
+def echo(bot, update, args):
+    # chech if location is in the location dict
+    if args[0] not in locations.keys():
+        update.message.reply_text("Не найдено! Доступные локации: " 
+        + ", ".join(list(locations.keys())) + " (чувствительно к регистру!)")
+        return
+    # takes location name from the dict and capitalize it
+    reply = "Местоположение: " + args[0].title() + "\n"
+    # data = {}    
+    # for key, value in current_weather.items():
+    #     # take api links, insert into the coordinates taken from location list by key
+    #     data[key] = json_to_dict(value.format(locations[args[0]][0], locations[args[0]][1]))
+           
+    data = json_to_dict(forecast["DarkSky.net"].format(locations[args[0]][0], locations[args[0]][1]))
+    current = data['currently']
+
+    current['time'] = datetime.datetime.fromtimestamp(current['time'])
+    current['temperature'] = str(farenhToCelc(current['temperature'])) + ' C'
+    current['apparentTemperature'] = str(farenhToCelc(current['apparentTemperature'])) + ' C'
+    current['dewPoint'] = str(farenhToCelc(current['dewPoint'])) + ' C'
+    current['humidity'] = str(current['humidity'] * 100) + ' %'
+    current['windSpeed'] = str(current['windSpeed']) + ' m/s'
+    current['pressure'] = str(current['pressure']) + ' hps'
+
+    for key,val in current.items():
+        reply += f"<code>{key}</code> :  {val}\n"
+
+    chatId = update.message.chat.id
+    bot.send_message(chatId, text = reply, parse_mode=telegram.ParseMode.HTML)
+
+
+def rain_now(bot, update, args):
+    # chech if location is in the location dict
+    if args[0] not in locations.keys():
+        update.message.reply_text("Не найдено! Доступные локации: " 
+        + ", ".join(list(locations.keys())) + " (чувствительно к регистру!)")
+        return
+    # takes location name from the dict and capitalize it
+    message = "Местоположение: " + args[0].title() + "\n"
+
+    data = {}    
+    for key, value in current_weather.items():
+        # take api links, insert into the coordinates taken from location list by key
+        data[key] = json_to_dict(value.format(locations[args[0]][0], locations[args[0]][1]))
+        
+    # openweather JSON have no "rain" key, when there are no rain in location
+    if "rain" in data["OpenWeatherMap.org"]:
+        own_rain = data["OpenWeatherMap.org"]["rain"]["3h"]
+    else:
+        own_rain = 0    
+
+    template = "{0} : осадки {1} mm \n"
+    message += template.format("OpenWeatherMap.org", own_rain)
+    message += template.format("DarkSky.net", data["DarkSky.net"]["currently"]["precipIntensity"])
+    message += template.format("APIXU.com", data["APIXU.com"]["current"]["precip_mm"])
+    update.message.reply_text(message)
+
 
 def error(bot, update, error):
     """Log Errors caused by Updates."""
@@ -61,10 +134,11 @@ def main():
     # on different commands - answer in Telegram
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
-    dp.add_handler(CommandHandler("погода", echo))
+    dp.add_handler(CommandHandler("погода", echo, pass_args=True))
+    dp.add_handler(CommandHandler("дождь", rain_now, pass_args=True))
 
     # on noncommand i.e message - echo the message on Telegram
-    dp.add_handler(MessageHandler(Filters.text, echo))
+    dp.add_handler(MessageHandler(Filters.text, rain_now))
 
     # log all errors
     dp.add_error_handler(error)
