@@ -88,6 +88,7 @@ def history(bot, update, args):
 
 # hourly saving rain data
 def hourly_log(): 
+    connection = sql.connect('log.db') 
     cursor = connection.cursor()
     for location in locations.keys():
         owm, darksky, apixu = rain(location)
@@ -100,6 +101,7 @@ def hourly_log():
 
 # daily saving rain data
 def daily_log():
+    connection = sql.connect('log.db') 
     cursor = connection.cursor()
     for location in locations.keys():
 
