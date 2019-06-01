@@ -1,4 +1,4 @@
-import urllib, json
+import urllib.request, json
 
 from data import *
 
