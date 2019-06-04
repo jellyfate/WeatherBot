@@ -21,27 +21,37 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 # db connection
 try:
     connection = sqlite3.connect('log.db')
 except sqlite3.Error as e:
     print("Error {}:".format(e.args[0]))
 
-
+# decode json from net ro python dictionary
 def json_to_dict(link):
     with urllib.request.urlopen(link) as url:
         return json.loads(url.read().decode())
 
-
-def farenhToCelc(farenhT):
+# transform Fahrenheit to Celsius
+def fahrenheit_to_celsius(farenhT):
     return round((farenhT - 32) * (5/9), 1)
 
-
+# check if provided location is in the list of places
 def unknown_location_check(location, update):
     if location not in places.keys():
         update.message.reply_text("Не найдено! Доступные локации: "
             + ", ".join(list(places.keys())) + " (чувствительно к регистру!)")
         return True
+
+
+def menu(bot, update):
+    main = [['/погода еньков', '/дождь еньков', '/история еньков'], 
+            ['/погода нефтебаза', '/дождь нефтебаза', '/история нефтебаза']]
+    main_markup = telegram.ReplyKeyboardMarkup(main)    
+    bot.send_message(chat_id=update.message.chat_id, 
+                    text="Custom Keyboard Test", 
+                    reply_markup=main_markup)
 
 
 def current(bot, update, args):
@@ -55,10 +65,10 @@ def current(bot, update, args):
     current = data['currently']
 
     current['time'] = datetime.datetime.fromtimestamp(current['time'])
-    current['temperature'] = str(farenhToCelc(current['temperature'])) + ' C'
+    current['temperature'] = str(fahrenheit_to_celsius(current['temperature'])) + ' C'
     current['apparentTemperature'] = str(
-        farenhToCelc(current['apparentTemperature'])) + ' C'
-    current['dewPoint'] = str(farenhToCelc(current['dewPoint'])) + ' C'
+        fahrenheit_to_celsius(current['apparentTemperature'])) + ' C'
+    current['dewPoint'] = str(fahrenheit_to_celsius(current['dewPoint'])) + ' C'
     current['humidity'] = str(current['humidity'] * 100) + ' %'
     current['windSpeed'] = str(current['windSpeed']) + ' m/s'
     current['pressure'] = str(current['pressure']) + ' hps'
@@ -231,7 +241,8 @@ def main():
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
     # on different commands - answer in Telegram
-    dp.add_handler(CommandHandler("погода", current, pass_args=True))
+    dp.add_handler(CommandHandler("меню", menu))
+    dp.add_handler(CommandHandler("погода", current, pass_args=True))    
     dp.add_handler(CommandHandler("дождь", rain_now, pass_args=True))
     dp.add_handler(CommandHandler(
         "история", history_and_today, pass_args=True))
@@ -242,7 +253,6 @@ def main():
                                   pass_job_queue=True,))
     # log all errors
     dp.add_error_handler(error)
-
     # start saving to db jobs
     set_daily(job_queue)
     set_hourly(job_queue)
