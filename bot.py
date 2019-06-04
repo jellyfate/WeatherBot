@@ -49,9 +49,7 @@ def menu(bot, update):
     main = [['/погода еньков', '/дождь еньков', '/история еньков'], 
             ['/погода нефтебаза', '/дождь нефтебаза', '/история нефтебаза']]
     main_markup = telegram.ReplyKeyboardMarkup(main)    
-    bot.send_message(chat_id=update.message.chat_id, 
-                    text="Custom Keyboard Test", 
-                    reply_markup=main_markup)
+    bot.send_message(chat_id=update.message.chat_id, text="меню", reply_markup=main_markup)
 
 
 def current(bot, update, args):
