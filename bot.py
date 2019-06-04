@@ -134,12 +134,16 @@ def history_and_today(bot, update, args):
         return
     # get rain log
     rows = history(7, args[0])
-    rows += today(args[0])
+    last_row = today(args[0])  
+    last_row = [item for t in last_row for item in t] 
+            
     template = "{0:10} {1:10} {2:10} {3:10} \n"
     reply = "Местоположение: " + args[0].title() + "\n"
     reply += template.format("Время", "       OWM", "  DarkSky", "APIXU")
     for row in rows:
         reply += template.format(row[0], row[1], row[2], row[3])
+    reply += template.format(datetime.datetime.now().strftime('today %H:%M'), 
+        max(last_row[1::4]), max(last_row[2::4]), max(last_row[3::4]))
     update.message.reply_text(reply)
 
 
@@ -153,7 +157,7 @@ def hourly_log(bot, job):
         owm, darksky, apixu = rain(location)
         cursor.execute('INSERT INTO {} VALUES("{}",{},{},{});'.format(
             places[location]["today_db"], datetime.datetime.now().strftime(
-                'today %H:%M'),
+                '%H:%M'),
             "{0:.1f}".format(owm),
             "{0:.1f}".format(darksky),
             "{0:.1f}".format(apixu)))
