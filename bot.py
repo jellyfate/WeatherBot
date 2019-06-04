@@ -33,9 +33,7 @@ def json_to_dict(link):
     with urllib.request.urlopen(link) as url:
         return json.loads(url.read().decode())
 
-# transform Fahrenheit to Celsius
-def fahrenheit_to_celsius(farenhT):
-    return round((farenhT - 32) * (5/9), 1)
+
 
 # check if provided location is in the list of places
 def unknown_location_check(location, update):
@@ -46,10 +44,12 @@ def unknown_location_check(location, update):
 
 
 def menu(bot, update):
-    main = [['/погода еньков', '/дождь еньков', '/история еньков'], 
+    """Show menu keyboard."""
+    main = [['/погода еньков', '/дождь еньков', '/история еньков'],
             ['/погода нефтебаза', '/дождь нефтебаза', '/история нефтебаза']]
-    main_markup = telegram.ReplyKeyboardMarkup(main)    
-    bot.send_message(chat_id=update.message.chat_id, text="меню", reply_markup=main_markup)
+    main_markup = telegram.ReplyKeyboardMarkup(main)
+    bot.send_message(chat_id=update.message.chat_id,
+                     text="меню", reply_markup=main_markup)
 
 
 def current(bot, update, args):
@@ -63,10 +63,12 @@ def current(bot, update, args):
     current = data['currently']
 
     current['time'] = datetime.datetime.fromtimestamp(current['time'])
-    current['temperature'] = str(fahrenheit_to_celsius(current['temperature'])) + ' C'
+    current['temperature'] = str(
+        fahrenheit_to_celsius(current['temperature'])) + ' C'
     current['apparentTemperature'] = str(
         fahrenheit_to_celsius(current['apparentTemperature'])) + ' C'
-    current['dewPoint'] = str(fahrenheit_to_celsius(current['dewPoint'])) + ' C'
+    current['dewPoint'] = str(
+        fahrenheit_to_celsius(current['dewPoint'])) + ' C'
     current['humidity'] = str(current['humidity'] * 100) + ' %'
     current['windSpeed'] = str(current['windSpeed']) + ' m/s'
     current['pressure'] = str(current['pressure']) + ' hps'
@@ -76,6 +78,10 @@ def current(bot, update, args):
 
     chatId = update.message.chat.id
     bot.send_message(chatId, text=reply, parse_mode=telegram.ParseMode.HTML)
+
+    # transform Fahrenheit to Celsius
+def fahrenheit_to_celsius(farenhT):
+    return round((farenhT - 32) * (5/9), 1)
 
 
 def rain(location):
@@ -87,15 +93,15 @@ def rain(location):
             .format(places[location]["coordinates"][0], places[location]["coordinates"][1]))
     # openweather JSON have no "rain" key, when there are no rain in location
     if "rain" in data["OpenWeatherMap.org"]:
-        own_rain = data["OpenWeatherMap.org"]["rain"]["3h"] 
+        own_rain = data["OpenWeatherMap.org"]["rain"]["3h"]
     else:
         own_rain = 0
-    return (own_rain, 
-        data["DarkSky.net"]["currently"]["precipIntensity"], 
-        data["APIXU.com"]["current"]["precip_mm"])
+    return (own_rain,
+            data["DarkSky.net"]["currently"]["precipIntensity"],
+            data["APIXU.com"]["current"]["precip_mm"])
 
 
-def rain_now(bot, update, args):
+def rain_reply(bot, update, args):
     """Show rain data in custom location."""
     if unknown_location_check(args[0], update):
         return
@@ -105,44 +111,47 @@ def rain_now(bot, update, args):
     reply = "Местоположение: " + args[0].title() + "\n"
     for service in weather["current"].keys():
         reply += "{0} : осадки {1} mm \n".format(service, rain_data[service])
-    update.message.reply_text(reply)
+    chatId = update.message.chat.id
+    bot.send_message(chatId, text=reply, parse_mode=telegram.ParseMode.HTML)
 
 
-def history(days, location):
-    """Get rain log from database in custom location and time range"""
-    connection = sqlite3.connect('log.db')
-    cursor = connection.cursor()
-    # get data from custom location`s database
-    cursor.execute("select * from {};".format(places[location]["history_db"]))
-    return cursor.fetchall()[-int(days):]
-
-
-def today(location):
-    """Get rain log from database in custom location and time range"""
-    connection = sqlite3.connect('log.db')
-    cursor = connection.cursor()
-    # get data from custom location`s database
-    cursor.execute("select * from {};".format(places[location]["today_db"]))
-    return cursor.fetchall()
-
-
-def history_and_today(bot, update, args):
-    """Show rain log for last week in custom location."""
-    if unknown_location_check(args[0], update):
-        return
+def history(bot, chatId, location, days):
     # get rain log
-    rows = history(7, args[0])
-    last_row = today(args[0])  
-    last_row = [item for t in last_row for item in t] 
-            
+    rows = get_log(location, "history_db")[-int(days):]
+    last_row = get_log(location, "today_db")
+    owm, darksky, apixu = calculate_max(last_row)
+
     template = "{0:10} {1:10} {2:10} {3:10} \n"
-    reply = "Местоположение: " + args[0].title() + "\n"
+    reply = "Местоположение: " + location.title() + "\n"
     reply += template.format("Время", "       OWM", "  DarkSky", "APIXU")
     for row in rows:
         reply += template.format(row[0], row[1], row[2], row[3])
-    reply += template.format(datetime.datetime.now().strftime('today %H:%M'), 
-        max(last_row[1::4]), max(last_row[2::4]), max(last_row[3::4]))
-    update.message.reply_text(reply)
+    reply += template.format(datetime.datetime.now().strftime('today %H:%M'),
+                             owm, darksky, apixu)
+    bot.send_message(chatId, text=reply, parse_mode=telegram.ParseMode.HTML)
+
+
+def history_reply(bot, update, args):
+    """Show rain log for last week in custom location."""
+    if unknown_location_check(args[0], update):
+        return
+    chatId = update.message.chat.id
+    history(bot, chatId, args[0], 7)
+
+
+def get_log(location, db):
+    """Get rain log from database in custom location and time range"""
+    connection = sqlite3.connect('log.db')
+    cursor = connection.cursor()
+    # get data from custom location`s database
+    cursor.execute("select * from {};".format(places[location][db]))
+    return cursor.fetchall()
+
+# get max rain mm value from day log
+def calculate_max(tulpe):
+    # transform tulpe to list to get max()
+    list = [item for t in tulpe for item in t]
+    return max(list[1::4]), max(list[2::4]), max(list[3::4])
 
 
 def hourly_log(bot, job):
@@ -178,11 +187,9 @@ def daily_log(bot, job):
         cursor.execute(
             "select * from {};".format(places[location]["today_db"]))
         rows = cursor.fetchall()
-        # next line needed to get max()
-        rows = [item for t in rows for item in t]
+        owm, darksky, apixu = calculate_max(rows)
         cursor.execute('INSERT INTO {} VALUES("{}",{},{},{});'.format(
-            places[location]["history_db"], datetime.date.today(),
-            max(rows[1::4]), max(rows[2::4]), max(rows[3::4])))
+            places[location]["history_db"], datetime.date.today(), owm, darksky, apixu))
         # clean the today db because its data transfered to history db
         cursor.execute("delete from {};".format(places[location]["today_db"]))
         connection.commit()
@@ -198,14 +205,8 @@ def set_daily(job_queue):
 def reminder(bot, job):
     """Send rain log in custom location and time range every day."""
     # get rain log for last N days
-    rows = history(job.context["days"], job.context["location"])
-
-    reply = "Местоположение: " + job.context["location"].title() + "\n"
-    template = "{0:10} {1:10} {2:10} {3:10} \n"
-    reply += template.format("День", "       OWM", "  DarkSky", "APIXU")
-    for row in rows:
-        reply += template.format(row[0], row[1], row[2], row[3])
-    bot.send_message(chat_id=job.context["chat_id"], text=reply)
+    history(bot, job.context["chat_id"],
+            job.context["location"], job.context["days"])
 
 
 def set_reminder(bot, update, job_queue, args):
@@ -214,10 +215,10 @@ def set_reminder(bot, update, job_queue, args):
         return
 
     job_queue.run_repeating(reminder, interval=86400,
-                            first=datetime.time(hour=16, minute=00),
+                            first=datetime.time(hour=int(args[2]), minute=00),
                             context={"chat_id": update.message.chat_id,
                                      "days": args[1], "location": args[0]})
-    update.message.reply_text('Мониторинг установлен.')
+    update.message.reply_text('Мониторинг установлен на ' + args[2])
 
 
 def unset_reminder(bot, update, job_queue):
@@ -244,10 +245,9 @@ def main():
     dp = updater.dispatcher
     # on different commands - answer in Telegram
     dp.add_handler(CommandHandler("меню", menu))
-    dp.add_handler(CommandHandler("погода", current, pass_args=True))    
-    dp.add_handler(CommandHandler("дождь", rain_now, pass_args=True))
-    dp.add_handler(CommandHandler(
-        "история", history_and_today, pass_args=True))
+    dp.add_handler(CommandHandler("погода", current, pass_args=True))
+    dp.add_handler(CommandHandler("дождь", rain_reply, pass_args=True))
+    dp.add_handler(CommandHandler("история", history_reply, pass_args=True))
     dp.add_handler(CommandHandler("мониторинг", set_reminder,
                                   pass_args=True,
                                   pass_job_queue=True,))
@@ -262,7 +262,7 @@ def main():
         # Start the Bot
         updater.start_polling()
         print('Бот работает...')
-        # until you press Ctrl-C or the process receives SIGINT, SIGTERM or SIGABRT. 
+        # until you press Ctrl-C or the process receives SIGINT, SIGTERM or SIGABRT.
         updater.idle()
     except (KeyboardInterrupt, SystemExit):
         # Not strictly necessary but should be done if possible
