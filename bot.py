@@ -250,13 +250,10 @@ def main():
         # Start the Bot
         updater.start_polling()
         print('Бот работает...')
-        # Run the bot until you press Ctrl-C or the process receives SIGINT,
-        # SIGTERM or SIGABRT. This should be used most of the time, since
-        # start_polling() is non-blocking and will stop the bot gracefully.
+        # until you press Ctrl-C or the process receives SIGINT, SIGTERM or SIGABRT. 
         updater.idle()
     except (KeyboardInterrupt, SystemExit):
-        # Not strictly necessary if daemonic mode is enabled but should be done if possible
-        # scheduler.shutdown()
+        # Not strictly necessary but should be done if possible
         connection.close()
         updater.stop()
 
