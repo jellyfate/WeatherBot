@@ -108,7 +108,7 @@ def daily_log():
         cursor.execute("select * from {};".format(places[location]["today_db"]))
         rows = cursor.fetchall()        
         rows = [item for t in rows for item in t]  
-        # cursor.execute("delete from {};".format(places[location]["today_db"]))
+        cursor.execute("delete from {};".format(places[location]["today_db"]))
 
         cursor.execute('INSERT INTO {} VALUES("{}",{},{},{});'.format(
             places[location]["history_db"], datetime.date.today(), 
