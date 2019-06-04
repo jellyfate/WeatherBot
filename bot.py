@@ -82,9 +82,9 @@ def rain(location):
         own_rain = data["OpenWeatherMap.org"]["rain"]["3h"] 
     else:
         own_rain = 0
-    return own_rain, 
+    return (own_rain, 
         data["DarkSky.net"]["currently"]["precipIntensity"], 
-        data["APIXU.com"]["current"]["precip_mm"]
+        data["APIXU.com"]["current"]["precip_mm"])
 
 
 def rain_now(bot, update, args):
