@@ -14,7 +14,13 @@ import datetime
 import sqlite3
 import urllib.request
 import json
+import os
+import time
 from data import *
+
+# set Kiev timezone
+os.environ['TZ'] = 'Europe/Kiev'
+time.tzset()
 
 # enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -89,8 +95,14 @@ def rain(location):
     data = {}
     for key, value in weather["current"].items():
         # take api links, insert into the coordinates taken from location list by key
-        data[key] = json_to_dict(value
-            .format(places[location]["coordinates"][0], places[location]["coordinates"][1]))
+        try:
+            data[key] = json_to_dict(value
+                .format(places[location]["coordinates"][0], 
+                        places[location]["coordinates"][1]))            
+        except urllib.error.HTTPError:
+            print("Service {} unavailable at {}"
+                .format(key,datetime.datetime.now().strftime('%H:%M')))
+            return
     # openweather JSON have no "rain" key, when there are no rain in location
     if "rain" in data["OpenWeatherMap.org"]:
         own_rain = data["OpenWeatherMap.org"]["rain"]["3h"]
